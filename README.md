@@ -1,23 +1,24 @@
 # bypassr1n
 bypass for dualboot and ios 15, 14, 13
 
-# tutorial
+# Usage
+
+Example: ./dualboot.sh --bypass 14.3 
 
 Options: example ./dualboot.sh --dualboot 14.3 
 
-    --dualboot          dualboot your device ios 15 with 14 
+   --dualboot          if you want bypass icloud in the dualboot use this ./bypassr1n.sh --dualboot 14.3
+   
+    --jail_palera1n   Use this only when you already jailbroken with semitethered palera1n to avoid disk errors. ./bypassr1n.sh --dualboot 14.3  --jail_palera1n 
     
-    --jail_palera1n     uses only if you have the palera1n jailbreak installed, it will create partition on disk + 1 because palera1n create a new partition. disk0s1s8 however if you jailbreakd with palera1n the disk would be disk0s1s9"
-    
-  
-      --bypass            that will bypass to second ios in case that you dont know the password of icloud however you could not login on icloud, but you can login on appstore and download apps. just use that in case that you dont remember the password, thank you for share mobileactivationd @MatthewPierson". example./dualboot.sh --jump 14.3 in case that you want to restore icloud use --bypass 14.3 --back
+    --tethered            use this if you have checkra1n or palera1n tethered jailbreak (the device will bootloop if you try to boot without jailbreak). ./
+    bypassra1n.sh --tethered 14.3
 
-    --back
-    
+    --back              if you want to bring back i cloud you can use for example ./bypassra1n.sh --tethered 14.3 --back (tethered you can change to kind of jailbreak like --semitethered or --dualboot)
+
+    --semitethered      if you have semitethered jailbreak palera1n use this. ./bypassr1n.sh --bypass (yourversion ios here) --semitethered 
     --dfuhelper         A helper to help get A11 devices into DFU mode from recovery mode
-    
     --debug             Debug the script
-    --help              Print this help
 
 
     

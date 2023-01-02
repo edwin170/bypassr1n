@@ -56,13 +56,14 @@ step() {
 
 print_help() {
     cat << EOF
-Usage: $0 [Options] [ subcommand |
+Usage: $0 [Options] [ subcommand | on ios 15 you have to use palera1n to jailbreak it when you jailbreak it you can bypass it 
 ./bypass
 
 Options:
-    --dualboot          if you want by pass the dualboot use this ./bypassr1n.sh --bypass 14.3 --dualboot
-    --jail_palera1n      Use this only when you already jailbroken with semitethered palera1n to avoid disk errors. 
-    --bypass            this will jump the icloud account if your device is blocked by it. just use in case that you forgot the password. ./bypassra1n.sh --bypass 14.3 also if you want to bring back i cloud you can use ./bypassra1n.sh --bypass 14.3 --back
+    --dualboot          if you want bypass icloud in the dualboot use this ./bypassr1n.sh --bypass 14.3 --dualboot
+    --jail_palera1n      Use this only when you already jailbroken with semitethered palera1n to avoid disk errors. ./bypassr1n.sh --bypass 14.3 --dualboot --jail_palera1n
+    --tethered            use this if you have checkra1n or palera1n tethered jailbreak (the device will bootloop if you try to boot without jailbreak). ./bypassra1n.sh --bypass 14.3 also if you want to bring back i cloud you can use ./bypassra1n.sh --bypass 14.3 --back
+    --semitethered      if you have semitethered jailbreak palera1n use this. ./bypassr1n.sh --bypass (yourversion ios here) --semitethered 
     --dfuhelper         A helper to help get A11 devices into DFU mode from recovery mode
     --debug             Debug the script
 
@@ -83,11 +84,14 @@ parse_opt() {
         --dualboot)
             dualboot=1
             ;;
-        --bypass)
-            bypass=1
+        --tethered)
+            tethered=1
             ;;
         --back)
             back=1
+            ;;
+        --semitethered)
+            semitethered=1
             ;;
         --jail_palera1n)
             jail_palera1n=1
@@ -507,8 +511,10 @@ if [ true ]; then
     fi
 
     # that is in order to know the partitions needed
-    if [ "$jail_palera1n" = "1" ]; then
-        disk=$(($disk + 1)) # if you have the palera1n jailbreak that will create + 1 partition for example your jailbreak is installed on disk0s1s8 that will create a new partition on disk0s1s9 so only you have to use it if you have palera1n
+    if [ "$dualboot" = "1"]; then
+        if [ "$jail_palera1n" = "1" ]; then
+            disk=$(($disk + 1)) # if you have the palera1n jailbreak that will create + 1 partition for example your jailbreak is installed on disk0s1s8 that will create a new partition on disk0s1s9 so only you have to use it if you have palera1n
+        fi
     fi
     echo $disk
     dataB=$(($disk + 1))
@@ -527,26 +533,6 @@ if [ true ]; then
         exit
     fi
     active=$(remote_cmd "cat /mnt6/active" 2> /dev/null)
-    echo "backup preboot partition... please dont delete directory prebootBackup" # this will backup your perboot parition in case that was deleted by error 
-    mkdir -p "prebootBackup"
-    if [ ! -d "prebootBackup/${deviceid}" ]; then
-        mkdir -p "prebootBackup/${deviceid}"
-        if [ ! $(remote_cp root@localhost:/mnt6/ "prebootBackup/${deviceid}") ]; then # that had a error so in case the error the script wont stop 
-            echo "finish backup"
-        fi
-    fi
-    
-    mkdir -p "boot/${deviceid}"
-    mkdir -p "boot/${deviceid}"
-    if [ "$fixhardware" = "1" ]; then
-        cp -rv "prebootBackup/${deviceid}/mnt6/${active}/usr/standalone/firmware/FUD" "boot/${deviceid}/" # load the fud in order to load file like touch or homebutton, idk know if that work because i just have iphone6s but you can do it 
-    fi
-
-    if [ "$fix_preboot" = "1" ]; then
-        remote_cp "prebootBackup/${deviceid}/mnt6" root@localhost:/
-        echo "finish to bring back preboot:)" # that will restore preboot
-        exit;
-    fi
 
     remote_cmd "cat /dev/rdisk1" | dd of=dump.raw bs=256 count=$((0x4000)) 
     "$dir"/img4tool --convert -s blobs/"$deviceid"-"$version".shsh2 dump.raw
@@ -555,7 +541,7 @@ if [ true ]; then
     "$dir"/img4tool -e -s $(pwd)/blobs/"$deviceid"-"$version".shsh2 -m work/IM4M
     rm dump.raw
 
-    if [ "$bypass" = "1" ] && [ "$dualboot" = "1" ]; then
+    if [ "$dualboot" = "1" ]; then
         remote_cmd "/sbin/mount_apfs /dev/disk0s1s${disk} /mnt8/"
         remote_cmd "/sbin/mount_apfs /dev/disk0s1s${dataB} /mnt9/"
         remote_cmd "/sbin/mount_apfs /dev/disk0s1s${prebootB} /mnt4/"
@@ -571,11 +557,52 @@ if [ true ]; then
         remote_cmd "ldid -e /mnt8/usr/libexec/mobileactivationdBackup > /mnt8/mob.plist"
         remote_cmd "ldid -S/mnt8/mob.plist /mnt8/usr/libexec/mobileactivationd"
         remote_cmd "rm -rv /mnt8/mob.plist"
-        echo "thank you for share mobileactivationd @MatthewPierson"
-        echo "[*] DONE ... now reboot and boot again"
+        echo "thank you for share mobileactivationd @Hacktivation"
+        echo "[*] DONE ... now reboot and boot using dualra1n"
         remote_cmd "/sbin/reboot"
-        
+        exit;
     fi
+
+    if [ "$semitethered" = "1" ]; then # this is if you are jailbroken on ios 15 using palera1n
+        remote_cmd "/sbin/mount_apfs /dev/disk0s1s${disk} /mnt8/"
+        if [ "$back" = "1" ]; then
+            remote_cmd "mv /mnt8/usr/libexec/mobileactivationdBackup /mnt8/usr/libexec/mobileactivationd "
+            echo "DONE. bring BACK icloud " # that will bring back the normal icloud
+            remote_cmd "/sbin/reboot"
+            exit; 
+        fi
+        remote_cmd "mv -iv /mnt8/usr/libexec/mobileactivationd /mnt8/usr/libexec/mobileactivationdBackup " # that will remplace mobileactivationd hacked
+        remote_cp other/mobileactivationd root@localhost:/mnt8/usr/libexec/
+        remote_cmd "ldid -e /mnt8/usr/libexec/mobileactivationdBackup > /mnt8/mob.plist"
+        remote_cmd "ldid -S/mnt8/mob.plist /mnt8/usr/libexec/mobileactivationd"
+        remote_cmd "rm -rv /mnt8/mob.plist"
+        echo "thank you for share mobileactivationd @Hacktivation"
+        echo "[*] DONE ... now reboot and boot using palera1n"
+        remote_cmd "/sbin/reboot"
+        exit;
+    fi
+
+    
+    if [ "$tethered" = "1" ]; then # use this if you just have tethered jailbreak
+        remote_cmd "/sbin/mount_apfs /dev/disk0s1s1 /mnt8/"
+        if [ "$back" = "1" ]; then
+            remote_cmd "mv /mnt8/usr/libexec/mobileactivationdBackup /mnt8/usr/libexec/mobileactivationd "
+            echo "DONE. bring BACK icloud " # that will bring back the normal icloud
+            remote_cmd "/sbin/reboot"
+            exit; 
+        fi
+        remote_cmd "mv -i /mnt8/usr/libexec/mobileactivationd /mnt8/usr/libexec/mobileactivationdBackup " # that will remplace mobileactivationd hacked
+        remote_cp other/mobileactivationd root@localhost:/mnt8/usr/libexec/
+        remote_cmd "ldid -e /mnt8/usr/libexec/mobileactivationdBackup > /mnt8/mob.plist"
+        remote_cmd "ldid -S/mnt8/mob.plist /mnt8/usr/libexec/mobileactivationd"
+        remote_cmd "rm -rv /mnt8/mob.plist"
+        echo "thank you for share mobileactivationd @Hacktivation"
+        echo "[*] DONE ... now reboot and boot using palera1n or checkra1n"
+        remote_cmd "/sbin/reboot"
+    fi
+
+
+
 fi
 
 } 2>&1 | tee logs/${log}
