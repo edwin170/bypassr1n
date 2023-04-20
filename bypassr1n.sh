@@ -16,17 +16,15 @@ echo "[*] Command ran:`if [ $EUID = 0 ]; then echo " sudo"; fi` ./bypassra1n.sh 
 # =========
 # Variables
 # ========= 
-ipsw="ipsw/*.ipsw" # put your ipsw 
-version="2.0"
+version="3.0"
 os=$(uname)
 dir="$(pwd)/binaries/$os"
 max_args=1
 arg_count=0
 disk=8
-extractedIpsw="ipsw/extracted/"
 
 if [ ! -d "ramdisk/" ]; then
-    git clone https://github.com/edwin170/ramdisk.git
+    git clone https://github.com/dualra1n/ramdisk.git
 fi
 # =========
 # Functions
@@ -44,10 +42,15 @@ remote_cp() {
 }
 
 step() {
+    rm -f .entered_dfu
     for i in $(seq "$1" -1 0); do
-        if [ "$(get_device_mode)" = "dfu" ]; then
+        if [[ -e .entered_dfu ]]; then
+            rm -f .entered_dfu
             break
         fi
+        if [[ $(get_device_mode) == "dfu" || ($1 == "10" && $(get_device_mode) != "none") ]]; then
+            touch .entered_dfu
+        fi &
         printf '\r\e[K\e[1;36m%s (%d)' "$2" "$i"
         sleep 1
     done
@@ -61,9 +64,8 @@ Usage: $0 [Options] [ subcommand | on ios 15 you have to use palera1n to jailbre
 
 Options:
     --dualboot          if you want bypass icloud in the dualboot use this ./bypassr1n.sh --bypass 14.3 --dualboot
-    --jail_palera1n      Use this only when you already jailbroken with semitethered palera1n to avoid disk errors. ./bypassr1n.sh --bypass 14.3 --dualboot --jail_palera1n
-    --tethered            use this if you have checkra1n or palera1n tethered jailbreak (the device will bootloop if you try to boot without jailbreak). ./bypassra1n.sh --bypass 14.3 also if you want to bring back i cloud you can use ./bypassra1n.sh --bypass 14.3 --back
-    --semitethered      if you have semitethered jailbreak palera1n use this. ./bypassr1n.sh --bypass (yourversion ios here) --semitethered 
+    --jail_palera1n      Use this only when you already jailbroken with semitethered palera1n to avoid disk errors on bypass dualboot. ./bypassr1n.sh --bypass 14.3 --dualboot --jail_palera1n
+    --tethered           bypass the main ios 13,14,15, use this if you have checkra1n or palera1n tethered jailbreak or semitethered (the device will bootloop if you try to boot without jailbreak). ./bypassra1n.sh --bypass 14.3, also if you want to bring back icloud you can use ./bypassra1n.sh --bypass 14.3 --back
     --dfuhelper         A helper to help get A11 devices into DFU mode from recovery mode
     --debug             Debug the script
 
@@ -89,9 +91,6 @@ parse_opt() {
             ;;
         --back)
             back=1
-            ;;
-        --semitethered)
-            semitethered=1
             ;;
         --jail_palera1n)
             jail_palera1n=1
@@ -177,7 +176,8 @@ _reset() {
 
 get_device_mode() {
     if [ "$os" = "Darwin" ]; then
-        apples="$(system_profiler SPUSBDataType | grep -B1 'Vendor ID: 0x05ac' | grep 'Product ID:' | cut -dx -f2 | cut -d' ' -f1 | tail -r 2> /dev/null)"
+        sp="$(system_profiler SPUSBDataType 2> /dev/null)"
+        apples="$(printf '%s' "$sp" | grep -B1 'Vendor ID: 0x05ac' | grep 'Product ID:' | cut -dx -f2 | cut -d' ' -f1 | tail -r)"
     elif [ "$os" = "Linux" ]; then
         apples="$(lsusb | cut -d' ' -f6 | grep '05ac:' | cut -d: -f2)"
     fi
@@ -185,11 +185,7 @@ get_device_mode() {
     local usbserials=""
     for apple in $apples; do
         case "$apple" in
-            12ab)
-            device_mode=normal
-            device_count=$((device_count+1))
-            ;;
-            12a8)
+            12a8|12aa|12ab)
             device_mode=normal
             device_count=$((device_count+1))
             ;;
@@ -225,9 +221,10 @@ get_device_mode() {
     if [ "$os" = "Linux" ]; then
         usbserials=$(cat /sys/bus/usb/devices/*/serial)
     elif [ "$os" = "Darwin" ]; then
-        usbserials=$(system_profiler SPUSBDataType | grep 'Serial Number' | cut -d: -f2- | sed 's/ //' 2> /dev/null)
+        usbserials=$(printf '%s' "$sp" | grep 'Serial Number' | cut -d: -f2- | sed 's/ //')
     fi
-    if grep -qE 'ramdisk tool (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) [0-9]{1,2} [0-9]{1,4} [0-9]{2}:[0-9]{2}:[0-9]{2}' <<< "$usbserials"; then
+
+    if grep -qE '(ramdisk tool|SSHRD_Script) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) [0-9]{1,2} [0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}' <<< "$usbserials"; then
         device_mode=ramdisk
     fi
     echo "$device_mode"
@@ -269,7 +266,11 @@ _dfuhelper() {
         step 10 'Release power button, but keep holding home button'
     fi
     sleep 1
-    
+
+    if [ "$(get_device_mode)" = "recovery" ]; then
+        _dfuhelper
+    fi
+
     if [ "$(get_device_mode)" = "dfu" ]; then
         echo "[*] Device entered DFU!"
     else
@@ -279,32 +280,31 @@ _dfuhelper() {
 }
 
 _kill_if_running() {
-    if (pgrep -u root -xf "$1" &> /dev/null > /dev/null); then
+    if (pgrep -u root -x "$1" &> /dev/null > /dev/null); then
         # yes, it's running as root. kill it
-        sudo killall $1
+        sudo killall $1 &> /dev/null
     else
         if (pgrep -x "$1" &> /dev/null > /dev/null); then
-            killall $1
+            killall $1 &> /dev/null
         fi
     fi
 }
 
 _exit_handler() {
-    if [ "$os" = 'Darwin' ]; then
-        defaults write -g ignore-devices -bool false
-        defaults write com.apple.AMPDevicesAgent dontAutomaticallySyncIPods -bool false
-        killall Finder
+    if [ "$os" = "Darwin" ]; then
+        killall -CONT AMPDevicesAgent AMPDeviceDiscoveryAgent MobileDeviceUpdater || true
     fi
+
     [ $? -eq 0 ] && exit
     echo "[-] An error occurred"
 
-    cd logs
-    for file in *.log; do
-        mv "$file" FAIL_${file}
-    done
-    cd ..
+    if [ -d "logs" ]; then
+        cd logs
+        mv "$log" FAIL_${log}
+        cd ..
+    fi
 
-    echo "[*] A failure log has been made. If you're going to make a GitHub issue, please attach the latest log."
+    echo "[*] A failure log has been made. If you're going ask for help, please attach the latest log."
 }
 trap _exit_handler EXIT
 
@@ -313,22 +313,24 @@ trap _exit_handler EXIT
 # ===========
 
 # Prevent Finder from complaning
-if [ "$os" = 'Darwin' ]; then
-    defaults write -g ignore-devices -bool true
-    defaults write com.apple.AMPDevicesAgent dontAutomaticallySyncIPods -bool true
-    killall Finder
+if [ "$os" = "Linux"  ]; then
+    chmod +x getSSHOnLinux.sh
+    sudo bash ./getSSHOnLinux.sh &
 fi
 
-# Download gaster
-if [ -e "$dir"/gaster ]; then
-    "$dir"/gaster &> /dev/null > /dev/null | grep -q 'usb_timeout: 5' && rm "$dir"/gaster
+if [ "$os" = 'Linux' ]; then
+    linux_cmds='lsusb'
 fi
 
-if [ ! -e "$dir"/gaster ]; then
-    curl -sLO https://static.palera.in/deps/gaster-"$os".zip
-    unzip gaster-"$os".zip
-    mv gaster "$dir"/
-    rm -rf gaster gaster-"$os".zip
+for cmd in curl unzip python3 git ssh scp killall sudo grep pgrep ${linux_cmds}; do
+    if ! command -v "${cmd}" > /dev/null; then
+        echo "[-] Command '${cmd}' not installed, please install it!";
+        cmd_not_found=1
+    fi
+done
+
+if [ "$cmd_not_found" = "1" ]; then
+    exit 1
 fi
 
 # Check for pyimg4
@@ -362,11 +364,10 @@ chmod +x "$dir"/*
 # Start
 # ============
 
-echo "dualboot | Version beta"
-echo "Written by edwin and most code of palera1n :) thanks team palera1n | Some code also the ramdisk from Nathan | thanks MatthewPierson, Ralph0045, and all people creator of path file boot"
+echo "dualboot | Bypass :)"
+echo "Written by edwin "
 echo ""
 
-version="beta"
 parse_cmdline "$@"
 
 if [ "$debug" = "1" ]; then
@@ -402,9 +403,9 @@ if [ "$(get_device_mode)" = "ramdisk" ]; then
     _kill_if_running iproxy
     echo "[*] Rebooting device in SSH Ramdisk"
     if [ "$os" = 'Linux' ]; then
-        sudo "$dir"/iproxy 2222 22 &
+        sudo "$dir"/iproxy 2222 22 >/dev/null &
     else
-        "$dir"/iproxy 2222 22 &
+        "$dir"/iproxy 2222 22 >/dev/null &
     fi
     sleep 1
     remote_cmd "/sbin/reboot"
@@ -416,7 +417,7 @@ if [ "$(get_device_mode)" = "normal" ]; then
     version=${version:-$(_info normal ProductVersion)}
     arch=$(_info normal CPUArchitecture)
     if [ "$arch" = "arm64e" ]; then
-        echo "[-] dualboot doesn't, and never will, work on non-checkm8 devices"
+        echo "[-] BYPASS doesn't, and never will, work on non-checkm8 devices"
         exit
     fi
     echo "Hello, $(_info normal ProductType) on $version!"
@@ -442,8 +443,6 @@ if [ "$dfuhelper" = "1" ]; then
     exit
 fi
 
-ipswurl=$(curl -sL "https://api.ipsw.me/v4/device/$deviceid?type=ipsw" | "$dir"/jq '.firmwares | .[] | select(.version=="'$version'")' | "$dir"/jq -s '.[0] | .url' --raw-output)
-
 # Have the user put the device into DFU
 if [ "$(get_device_mode)" != "dfu" ]; then
     recovery_fix_auto_boot;
@@ -466,7 +465,6 @@ if [ true ]; then
     cd ramdisk
     chmod +x sshrd.sh
     echo "[*] Creating ramdisk"
-    tweaks=1
     ./sshrd.sh 15.6 
 
     echo "[*] Booting ramdisk"
@@ -485,17 +483,28 @@ if [ true ]; then
 
     # Execute the commands once the rd is booted
     if [ "$os" = 'Linux' ]; then
-        sudo "$dir"/iproxy 2222 22 &
+        sudo "$dir"/iproxy 2222 22 >/dev/null &
     else
-        "$dir"/iproxy 2222 22 &
+        "$dir"/iproxy 2222 22 >/dev/null &
     fi
 
     if ! ("$dir"/sshpass -p 'alpine' ssh -o StrictHostKeyChecking=no -p2222 root@localhost "echo connected" &> /dev/null); then
         echo "[*] Waiting for the ramdisk to finish booting"
     fi
 
+    i=1
     while ! ("$dir"/sshpass -p 'alpine' ssh -o StrictHostKeyChecking=no -p2222 root@localhost "echo connected" &> /dev/null); do
         sleep 1
+        i=$((i+1))
+        if [ "$i" == 15 ]; then
+            if [ "$os" = 'Linux' ]; then
+                echo -e "as a sudo user or your user, you should execute in another terminal:  \e[1;37mssh-keygen -f /root/.ssh/known_hosts -R \"[localhost]:2222\"\e[0m"
+                read -p "Press [ENTER] to continue"
+            else
+                echo "mmm that looks like that ssh it's not working try to reboot your computer or send the log file trough discord"
+                read -p "Press [ENTER] to continue"
+            fi
+        fi
     done
 
     echo $disk
@@ -511,7 +520,7 @@ if [ true ]; then
     fi
 
     # that is in order to know the partitions needed
-    if [ "$dualboot" = "1"]; then
+    if [ "$dualboot" = "1" ]; then
         if [ "$jail_palera1n" = "1" ]; then
             disk=$(($disk + 1)) # if you have the palera1n jailbreak that will create + 1 partition for example your jailbreak is installed on disk0s1s8 that will create a new partition on disk0s1s9 so only you have to use it if you have palera1n
         fi
@@ -534,24 +543,19 @@ if [ true ]; then
     fi
     active=$(remote_cmd "cat /mnt6/active" 2> /dev/null)
 
-    remote_cmd "cat /dev/rdisk1" | dd of=dump.raw bs=256 count=$((0x4000)) 
-    "$dir"/img4tool --convert -s blobs/"$deviceid"-"$version".shsh2 dump.raw
-    echo "[*] Converting blob"
-    sleep 3
-    "$dir"/img4tool -e -s $(pwd)/blobs/"$deviceid"-"$version".shsh2 -m work/IM4M
-    rm dump.raw
-
     if [ "$dualboot" = "1" ]; then
         remote_cmd "/sbin/mount_apfs /dev/disk0s1s${disk} /mnt8/"
         remote_cmd "/sbin/mount_apfs /dev/disk0s1s${dataB} /mnt9/"
-        remote_cmd "/sbin/mount_apfs /dev/disk0s1s${prebootB} /mnt4/"
+        
         if [ "$back" = "1" ]; then
             remote_cmd "mv /mnt8/usr/libexec/mobileactivationdBackup /mnt8/usr/libexec/mobileactivationd "
             echo "DONE. bring BACK icloud " # that will bring back the normal icloud
             remote_cmd "/sbin/reboot"
             exit; 
         fi
-        remote_cmd "cp -av /mnt2/root/Library/Lockdown/* /mnt9/root/Library/Lockdown/. "
+        if [ $(remote_cmd "cp -av /mnt2/root/Library/Lockdown/* /mnt9/root/Library/Lockdown/.") ]; then
+            echo "[*] GOT IT, COPIED THE LOCKDOWN FROM THE MAIN IOS ..."
+        fi
         remote_cmd "mv /mnt8/usr/libexec/mobileactivationd /mnt8/usr/libexec/mobileactivationdBackup " # that will remplace mobileactivationd hacked
         remote_cp other/mobileactivationd root@localhost:/mnt8/usr/libexec/
         remote_cmd "ldid -e /mnt8/usr/libexec/mobileactivationdBackup > /mnt8/mob.plist"
@@ -564,42 +568,26 @@ if [ true ]; then
         exit;
     fi
 
-    if [ "$semitethered" = "1" ]; then # this is if you are jailbroken on ios 15 using palera1n
-        remote_cmd "/sbin/mount_apfs /dev/disk0s1s${disk} /mnt8/"
-        if [ "$back" = "1" ]; then
-            remote_cmd "mv /mnt8/usr/libexec/mobileactivationdBackup /mnt8/usr/libexec/mobileactivationd "
-            echo "DONE. bring BACK icloud " # that will bring back the normal icloud
-            remote_cmd "/sbin/reboot"
-            exit; 
-        fi
-        remote_cmd "mv -iv /mnt8/usr/libexec/mobileactivationd /mnt8/usr/libexec/mobileactivationdBackup " # that will remplace mobileactivationd hacked
-        remote_cp other/mobileactivationd root@localhost:/mnt8/usr/libexec/
-        remote_cmd "ldid -e /mnt8/usr/libexec/mobileactivationdBackup > /mnt8/mob.plist"
-        remote_cmd "ldid -S/mnt8/mob.plist /mnt8/usr/libexec/mobileactivationd"
-        remote_cmd "rm -rv /mnt8/mob.plist"
-        remote_cmd "/usr/sbin/nvram auto-boot=true"
-        echo "thank you for share mobileactivationd @Hacktivation"
-        echo "[*] DONE ... now reboot and boot using palera1n"
-        remote_cmd "/sbin/reboot"
-        exit;
-    fi
-
     
     if [ "$tethered" = "1" ]; then # use this if you just have tethered jailbreak
-        remote_cmd "/sbin/mount_apfs /dev/disk0s1s1 /mnt8/"
+        remote_cmd "mount_filesystems"
+
         if [ "$back" = "1" ]; then
-            remote_cmd "mv /mnt8/usr/libexec/mobileactivationdBackup /mnt8/usr/libexec/mobileactivationd "
+            remote_cmd "mv /mnt1/usr/libexec/mobileactivationdBackup /mnt1/usr/libexec/mobileactivationd "
             echo "DONE. bring BACK icloud " # that will bring back the normal icloud
             remote_cmd "/sbin/reboot"
             exit; 
         fi
-        remote_cmd "mv -i /mnt8/usr/libexec/mobileactivationd /mnt8/usr/libexec/mobileactivationdBackup " # that will remplace mobileactivationd hacked
-        remote_cp other/mobileactivationd root@localhost:/mnt8/usr/libexec/
-        remote_cmd "ldid -e /mnt8/usr/libexec/mobileactivationdBackup > /mnt8/mob.plist"
-        remote_cmd "ldid -S/mnt8/mob.plist /mnt8/usr/libexec/mobileactivationd"
-        remote_cmd "rm -rv /mnt8/mob.plist"
-        echo "thank you for share mobileactivationd @Hacktivation"
-        echo "[*] DONE ... now reboot and boot using palera1n or checkra1n"
+        remote_cmd "mv -i /mnt1/usr/libexec/mobileactivationd /mnt1/usr/libexec/mobileactivationdBackup " # that will remplace mobileactivationd hacked
+        remote_cp other/mobileactivationd root@localhost:/mnt1/usr/libexec/
+        remote_cmd "ldid -e /mnt1/usr/libexec/mobileactivationdBackup > /mnt1/mob.plist"
+        remote_cmd "ldid -S/mnt1/mob.plist /mnt1/usr/libexec/mobileactivationd"
+        remote_cmd "rm -rv /mnt1/mob.plist"
+        remote_cmd "/usr/sbin/nvram auto-boot=false"
+
+        echo "[*] Thank you for share the mobileactivationd @Hacktivation"
+        echo "[*] Please now try to boot jailbroke in order to that the bypass work"
+        echo "[*] DONE ... now reboot and boot jailbroken using palera1n or checkra1n"
         remote_cmd "/sbin/reboot"
     fi
 
