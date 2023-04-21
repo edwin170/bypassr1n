@@ -24,6 +24,10 @@ Options: example ./dualboot.sh --dualboot 14.3
 _ _ _
 
 
+# or you can use the gui version, python3 gui.py
+
+- depend of PyQt5, pip3 install PyQt5
+
 
 # Credits
 
@@ -35,4 +39,4 @@ _ _ _
 
 - [Divise](https://github.com/MatthewPierson/Divise) thank you for the mobileactivationd
 
-
+-  [RIFOX], THANK YOU FOR THE GUI.

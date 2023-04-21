@@ -562,7 +562,7 @@ if [ true ]; then
         remote_cmd "ldid -S/mnt8/mob.plist /mnt8/usr/libexec/mobileactivationd"
         remote_cmd "rm -rv /mnt8/mob.plist"
         remote_cmd "/usr/sbin/nvram auto-boot=true"
-        echo "thank you for share mobileactivationd @Hacktivation"
+        echo "thank you for share mobileactivationd @matty"
         echo "[*] DONE ... now reboot and boot using dualra1n"
         remote_cmd "/sbin/reboot"
         exit;
