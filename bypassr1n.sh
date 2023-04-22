@@ -24,7 +24,7 @@ arg_count=0
 disk=8
 
 if [ ! -d "ramdisk/" ]; then
-    git clone https://github.com/dualra1n/ramdisk.git
+    git clone https://github.com/edwin170/ramdisk.git
 fi
 # =========
 # Functions
@@ -465,7 +465,7 @@ if [ true ]; then
     cd ramdisk
     chmod +x sshrd.sh
     echo "[*] Creating ramdisk"
-    ./sshrd.sh 15.6 
+    ./sshrd.sh 16.0.2
 
     echo "[*] Booting ramdisk"
     ./sshrd.sh boot
@@ -584,7 +584,7 @@ if [ true ]; then
         remote_cmd "rm -rv /mnt1/mob.plist"
         remote_cmd "/usr/sbin/nvram auto-boot=false"
 
-        echo "[*] Thank you for share the mobileactivationd @Hacktivation"
+        echo "[*] Thank you for share the mobileactivationd @divise"
         echo "[*] Please now try to boot jailbroke in order to that the bypass work"
         echo "[*] DONE ... now reboot and boot jailbroken using palera1n or checkra1n"
         remote_cmd "/sbin/reboot"
