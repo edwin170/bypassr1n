@@ -570,8 +570,7 @@ if [ true ]; then
 
     
     if [ "$tethered" = "1" ]; then # use this if you just have tethered jailbreak
-        remote_cmd "mount_filesystems"
-
+    
         if [ "$back" = "1" ]; then
             remote_cmd "mv /mnt1/usr/libexec/mobileactivationdBackup /mnt1/usr/libexec/mobileactivationd "
             echo "DONE. bring BACK icloud " # that will bring back the normal icloud
