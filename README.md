@@ -3,10 +3,11 @@ bypass for dualboot and ios 15, 14, 13
 
 # Usage
 
-Example: ./dualboot.sh --bypass 14.3 
+Example: ./dualboot.sh --tethered 14.3 for downr1n or normal ios
 
-Options: example ./dualboot.sh --dualboot 14.3 
+example ./dualboot.sh --dualboot 14.3 for dualra1n
 
+Options: 
    --dualboot          if you want bypass icloud in the dualboot use this ./bypassr1n.sh --dualboot 14.3
    
     --jail_palera1n   Use this only when you already jailbroken with semitethered palera1n to avoid disk errors. ./bypassr1n.sh 
